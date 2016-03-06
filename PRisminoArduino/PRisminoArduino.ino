@@ -3,7 +3,7 @@
 #include <Servo.h>
 
 #define VERSION_MAJOR 0
-#define VERSION_MINOR 3
+#define VERSION_MINOR 5
 
 // Communication method, uncomment only one
 #define Comm Serial // for USB
@@ -11,6 +11,7 @@
 
 // Speed at which to communicate, usually 9600
 #define BAUDRATE 9600
+//#define BAUDRATE 57600 // Bluetooth might be configured differently
 
 // Instance of the camera, it works over I2C and the default address is "5"
 LinearCamera lc = LinearCamera(5);
@@ -19,7 +20,7 @@ uint8_t *lcDataPtr;
 char buffer[16];
 Servo servo1, servo2;
 uint16_t frequency, duration, value;
-uint8_t i, pin;
+uint16_t i, pin;
 
 // Default exposure time in microseconds
 uint16_t exposureTime = 100;
@@ -27,10 +28,18 @@ uint16_t exposureTime = 100;
 void setup()
 {
   Comm.begin(BAUDRATE);
+
+  // Configure pins to their default values
+  pinMode(9, OUTPUT);
+  pinMode(10, OUTPUT);
+  pinMode(11, OUTPUT);
+  pinMode(12, OUTPUT);
 }
 
 void loop()
 {
+  static int8_t speedLeft, speedRight;
+  
   if(Comm.available())
   {
     switch(Comm.read())
@@ -47,15 +56,25 @@ void loop()
         {
           continue;
         }
+        
+        // Do not reset configuration of motor pins (9-12),
+        // as changing modes makes the robot move slighly
+        if(i >= 9 && i <= 12)
+        {
+          continue;
+        }
+        
         pinMode(i, INPUT);
-        // Also remove the pull-up
+        // Remove the pull-up resistors (just in case)
         digitalWrite(i, LOW);
       }
       break;
     case 's':
       // Set motor speed
       while(Comm.available() < 2);
-      setSpeed(Comm.read(), Comm.read());
+      speedLeft = Comm.read();
+      speedRight = Comm.read();
+      setSpeed(speedLeft, speedRight);
       break;
     case 't':
       while(Comm.available() < 4);
@@ -140,17 +159,38 @@ void loop()
       digitalWrite(LED, LOW);
       break;
     case 'e':
-      // Change exposure time for the linear camera
+      // Manual exposure time calibration for the linear camera
       while(Comm.available() < 2);
       exposureTime = (Comm.read() << 8) | Comm.read();
       lc.setExpTime(exposureTime);
       break;
+    case 'a':
+      // Automatic exposure time calibration for the linear camera
+      for(i = 1000; i > 1; i--)
+      {
+        // Set the exposure time in microseconds
+        lc.setExpTime(i);
+        // Get the camera output
+        lcDataPtr = lc.getPixels();
+        // Stop as soon as there is no more saturation
+        if(lc.getMax() < 0xff)
+        {
+          exposureTime = i;
+          break;
+        }
+      }
+      // Send new value back
+      Comm.print("a");
+      Comm.print(exposureTime);
+      Comm.print("\n");
+      break;
     case 'c':
-      // Configure the I2C lines
+      // Configure the I2C lines as open-drain with interal pull-up resistors
       pinMode(SDA, INPUT); // pin 2
       pinMode(SCL, INPUT); // pin 3
       digitalWrite(SDA, HIGH);
       digitalWrite(SCL, HIGH);
+      
       // Take a picture and return the pointer to the data address' first value
       lcDataPtr = lc.getPixels();
       

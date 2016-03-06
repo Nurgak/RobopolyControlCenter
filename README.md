@@ -52,6 +52,10 @@ Downloading the source code makes it very easy to modifiy the application and ad
 
 # Version log
 
+## 0.5 (2016-03-06)
+
+* Added automatic exposure calibration for the linear camera, tweaked PRismino code
+
 ## 0.4 (2014-12-04)
 
 * Tuned some control constants for the rule-based obstace avoidance.

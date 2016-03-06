@@ -73,7 +73,7 @@ Serial.prototype.send = function(data, options)
 
 	chrome.serial.send(this.connectionId, this.convertStringToArrayBuffer(data), function(sendInfo)
 	{
-		//console.log("Sent bytes: " + sendInfo.bytesSent);
+		//console.log("Sent data: " + data);
 	});
 }
 

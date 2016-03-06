@@ -238,7 +238,7 @@ TABS.control.setSpeed = function()
 			this.currentSpeed.right = 0;
 		}
 	}
-
+	
 	this.serialDevice.send("s", [this.currentSpeed.left, this.currentSpeed.right]);
 
 	// If the final speed is not reached yet call this function again in 100ms

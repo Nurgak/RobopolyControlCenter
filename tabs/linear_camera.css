@@ -17,3 +17,9 @@
 	right: 2em;
 	top: 2em;
 }
+
+#content input.inlineButton
+{
+	padding: .1em;
+	min-width: 0;
+}

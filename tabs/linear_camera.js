@@ -10,6 +10,12 @@ TABS.linear_camera.initialize = function(serialDevice)
 	this.data = [];
 	this.averageMax = [];
 
+	this.dataType = 0;
+	this.DATA_TYPE = {
+		"AUTO_CALIBRATION": 97, // "a"
+		"CAMERA_DATA": 99 // "c"
+	};
+
 	this.follow = false;
 	this.followHysteresis = 5;
 
@@ -25,6 +31,17 @@ TABS.linear_camera.initialize = function(serialDevice)
 		{
 			$(this).next("span").html(this.value);
 			self.serialDevice.send("e", [this.value >> 8, this.value & 0xff]);
+		};
+
+		document.getElementById("automaticCalibration").onclick = function()
+		{
+			// Stop camera data stream update during calibration
+			if(self.nextUpdate)
+			{
+				window.clearTimeout(self.nextUpdate);
+				self.nextUpdate = false;
+			}
+			self.serialDevice.send("a");
 		};
 
 		document.getElementById("threshold").oninput = function()
@@ -98,6 +115,7 @@ TABS.linear_camera.initialize = function(serialDevice)
 			self.read(info);
 		});
 
+		// Start updating the grapth with camera data
 		self.update();
 	});
 }
@@ -110,18 +128,32 @@ TABS.linear_camera.read = function(info)
 	{
 		switch(data[i])
 		{
-			case 99: // c
-				// Beginning
+			case this.DATA_TYPE.AUTO_CALIBRATION: // "a"
+			case this.DATA_TYPE.CAMERA_DATA: // "c"
+				// Beginning of linear camera data
+				this.dataType = data[i];
 				this.buffer = "";
 				this.data = [];
 				break;
-			case 10: // line feed
-				this.data.push([this.data.length, parseInt(this.buffer)]);
-				if(this.data.length == this.maxData)
+			case 10: // Line feed (new data)
+				if(this.dataType == this.DATA_TYPE.AUTO_CALIBRATION)
 				{
-					this.updateGraph();
+					$("#exposureTime").val(this.buffer);
+					$("#exposureTime").next("span").html(this.buffer);
+
+					// Restart camera data aquisition as it was stopped for the calibration
+					this.update();
 				}
-				this.buffer = "";
+				else if(this.dataType == this.DATA_TYPE.CAMERA_DATA)
+				{
+					this.data.push([this.data.length, parseInt(this.buffer)]);
+					// End of linear camera data: update graph
+					if(this.data.length == this.maxData)
+					{
+						this.updateGraph();
+					}
+					this.buffer = "";
+				}
 				break;
 			default:
 				this.buffer += String.fromCharCode(data[i]);
@@ -302,5 +334,6 @@ TABS.linear_camera.cleanup = function()
 	if(this.nextUpdate)
 	{
 		window.clearTimeout(this.nextUpdate);
+		this.nextUpdate = false;
 	}
 }
